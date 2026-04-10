@@ -1,0 +1,17 @@
+{
+  "name": "medivibe-prototype",
+  "version": "1.0.0",
+  "description": "Vulnerable MediVibe Prototype for Academic Report",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "sqlite3": "^5.1.7"
+  }
+}

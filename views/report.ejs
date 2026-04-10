@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediVibe - Dettaglio Referto</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="logo">MediVibe</a>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card wide">
+            <h2>Dettaglio Referto #<%= report.id %></h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Paziente: <span style="color: var(--primary);"><%= report.patient_name || 'Sconosciuto' %></span></p>
+
+            <div style="background: rgba(255,255,255,0.05); padding: 25px; border-radius: 10px; border: 1px solid var(--card-border);">
+                <h3 style="color: var(--secondary); margin-bottom: 15px;"><%= report.title %></h3>
+                
+                <% if (report.content) { %>
+                    <p style="line-height: 1.6;"><%= report.content %></p>
+                <% } %>
+
+                <% if (report.file_path) { %>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--card-border);">
+                        <h4>Allegato Tecnico:</h4>
+                        <a href="<%= report.file_path %>" target="_blank" class="btn" style="margin-top: 10px; display: inline-block;">Scarica / Visualizza Allegato</a>
+                    </div>
+                <% } %>
+            </div>
+
+            <div class="text-center" style="margin-top: 30px;">
+                <a href="/dashboard" class="btn-secondary" style="padding: 10px 20px; border-radius: 8px; border: 1px solid var(--text-muted); color: var(--text-muted); text-decoration: none;">Torna alla Dashboard</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

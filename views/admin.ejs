@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediVibe - Amministrazione</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav class="navbar" style="background: rgba(255, 75, 75, 0.1); border-bottom-color: var(--danger);">
+        <a href="/" class="logo" style="color: var(--danger); text-shadow: 0 0 10px rgba(255, 75, 75, 0.4);">MediVibe Admin</a>
+        <div class="nav-links">
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 1000px;">
+        <div class="card wide">
+            <h1 style="background: -webkit-linear-gradient(45deg, var(--danger), #ff8a8a); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pannello di Controllo</h1>
+            <p class="text-center" style="color: var(--text-muted); margin-bottom: 30px;">Accesso riservato</p>
+
+            <h3>Gestione Utenti</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Email</th>
+                            <th>Ruolo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% users.forEach(function(u) { %>
+                            <tr>
+                                <td><%= u.id %></td>
+                                <td><%= u.name %></td>
+                                <td><%= u.email %></td>
+                                <td><span style="padding: 4px 8px; border-radius: 4px; background: <%= u.role === 'admin' ? 'rgba(255, 75, 75, 0.2)' : 'rgba(77, 238, 234, 0.2)' %>; color: <%= u.role === 'admin' ? 'var(--danger)' : 'var(--primary)' %>; font-size: 14px;"><%= u.role.toUpperCase() %></span></td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
