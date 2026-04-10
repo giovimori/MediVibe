@@ -10,33 +10,46 @@
     <nav class="navbar">
         <a href="/" class="logo">MediVibe</a>
         <div class="nav-links">
-            <a href="/dashboard">Dashboard</a>
-            <a href="/logout">Logout</a>
+            <a href="/dashboard">Fascicolo Paziente</a>
+            <a href="/logout">Disconnetti</a>
         </div>
     </nav>
 
     <div class="container">
-        <div class="card wide">
-            <h2>Dettaglio Referto #<%= report.id %></h2>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Paziente: <span style="color: var(--primary);"><%= report.patient_name || 'Sconosciuto' %></span></p>
+        <div class="card wide" style="margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); padding-bottom: 20px; margin-bottom: 30px;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <h2 style="margin: 0; color: var(--primary-hover);">Documento Medico Ufficiale</h2>
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text-muted);">Codice Riferimento: #MV-<%= report.id %>-2026</span>
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Paziente Intestatario:</p>
+                    <p style="font-size: 18px; font-weight: 700; color: var(--text-main); margin: 0;"><%= report.patient_name || 'Sconosciuto' %></p>
+                </div>
+            </div>
 
-            <div style="background: rgba(255,255,255,0.05); padding: 25px; border-radius: 10px; border: 1px solid var(--card-border);">
-                <h3 style="color: var(--secondary); margin-bottom: 15px;"><%= report.title %></h3>
+            <div style="background: var(--bg-color); padding: 30px; border-radius: 8px; border: 1px solid var(--card-border);">
+                <h3 style="color: var(--text-main); margin-bottom: 20px; font-size: 22px; padding-bottom: 15px; border-bottom: 1px solid var(--card-border);"><%= report.title %></h3>
                 
                 <% if (report.content) { %>
-                    <p style="line-height: 1.6;"><%= report.content %></p>
+                    <div style="line-height: 1.8; color: var(--text-main); font-size: 15px; white-space: pre-wrap;"><%= report.content %></div>
+                <% } else { %>
+                    <p style="color: var(--text-muted); font-style: italic;">Nessuna nota clinica aggiuntiva presente sul referto.</p>
                 <% } %>
 
                 <% if (report.file_path) { %>
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--card-border);">
-                        <h4>Allegato Tecnico:</h4>
-                        <a href="<%= report.file_path %>" target="_blank" class="btn" style="margin-top: 10px; display: inline-block;">Scarica / Visualizza Allegato</a>
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--card-border); background: white; padding: 20px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Allegato Tecnico/Strumentale</h4>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 24px;">📄</span>
+                            <a href="<%= report.file_path %>" target="_blank" class="btn" style="background-color: white; color: var(--primary); border: 1px solid var(--primary); font-weight: 500;">Scarica Copia Originale</a>
+                        </div>
                     </div>
                 <% } %>
             </div>
 
-            <div class="text-center" style="margin-top: 30px;">
-                <a href="/dashboard" class="btn-secondary" style="padding: 10px 20px; border-radius: 8px; border: 1px solid var(--text-muted); color: var(--text-muted); text-decoration: none;">Torna alla Dashboard</a>
+            <div class="text-center" style="margin-top: 40px;">
+                <a href="/dashboard" class="btn-secondary" style="padding: 10px 24px;">← Torna al Fascicolo</a>
             </div>
         </div>
     </div>

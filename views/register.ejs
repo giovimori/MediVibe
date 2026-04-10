@@ -3,43 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediVibe - Registrazione</title>
+    <title>MediVibe - Registrazione Paziente</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <nav class="navbar">
         <a href="/" class="logo">MediVibe</a>
         <div class="nav-links">
-            <a href="/login">Login</a>
-            <a href="/register">Registrati</a>
+            <a href="/login">Accesso Pazienti</a>
+            <a href="/register" style="color: var(--primary);">Registrazione</a>
         </div>
     </nav>
 
     <div class="container">
         <div class="card">
-            <h1>Crea un Account</h1>
+            <h1>Crea il tuo Fascicolo</h1>
+            <p class="text-muted text-center" style="margin-bottom: 24px; font-size: 14px;">Iscriviti ora alla piattaforma ufficiale MediVibe per gestire referti e cartella clinica.</p>
             
             <form action="/register" method="POST">
                 <div class="form-group">
                     <label for="name">Nome Completo</label>
-                    <input type="text" id="name" name="name" required placeholder="Mario Rossi">
+                    <input type="text" id="name" name="name" required placeholder="Es. Mario Rossi">
                 </div>
 
                 <div class="form-group">
-                    <label for="email">Indirizzo Email</label>
+                    <label for="email">Indirizzo Email Ufficiale</label>
                     <input type="email" id="email" name="email" required placeholder="mario.rossi@example.com">
                 </div>
                 
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required placeholder="Scegli una password">
+                    <label for="password">Password di Accesso</label>
+                    <input type="password" id="password" name="password" required placeholder="Scegli una password sicura">
                 </div>
                 
-                <button type="submit">Registrati Ora</button>
+                <button type="submit" style="margin-top: 10px;">Comincia la Procedura</button>
             </form>
             
-            <div class="text-center">
-                <p>Hai già un account? <a href="/login">Accedi</a></p>
+            <div class="text-center" style="margin-top: 24px;">
+                <p style="font-size: 14px; color: var(--text-muted);">Possiedi già un fascicolo digitale? <br><a href="/login" style="display: inline-block; margin-top: 8px;">Accedi ora</a></p>
             </div>
         </div>
     </div>

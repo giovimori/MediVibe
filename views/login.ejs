@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediVibe - Login</title>
+    <title>MediVibe - Autenticazione Accesso</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <nav class="navbar">
         <a href="/" class="logo">MediVibe</a>
         <div class="nav-links">
-            <a href="/login">Login</a>
-            <a href="/register">Registrati</a>
+            <a href="/login" style="color: var(--primary);">Accesso Pazienti</a>
+            <a href="/register">Registrazione</a>
         </div>
     </nav>
 
     <div class="container">
         <div class="card">
-            <h1>Accedi al Portale</h1>
+            <h1>Accesso al Portale Sanitario</h1>
+            <p class="text-muted text-center" style="margin-bottom: 24px; font-size: 14px;">Inserisci le tue credenziali per accedere al tuo fascicolo sanitario digitale.</p>
             
             <% if (error) { %>
                 <div class="error"><%= error %></div>
@@ -31,14 +32,14 @@
                 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required placeholder="Inserisci la tua password">
+                    <input type="password" id="password" name="password" required placeholder="Scrivi la tua password">
                 </div>
                 
-                <button type="submit">Accedi Sicuramente</button>
+                <button type="submit" style="margin-top: 10px;">Accedi all'Area Riservata</button>
             </form>
             
-            <div class="text-center">
-                <p>Non hai un account? <a href="/register">Registrati qui</a></p>
+            <div class="text-center" style="margin-top: 24px;">
+                <p style="font-size: 14px; color: var(--text-muted);">Non possiedi ancora un account digitale? <br><a href="/register" style="display: inline-block; margin-top: 8px;">Crea il tuo fascicolo sanitario</a></p>
             </div>
         </div>
     </div>
