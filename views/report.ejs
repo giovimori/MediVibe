@@ -10,7 +10,11 @@
     <nav class="navbar">
         <a href="/" class="logo">MediVibe</a>
         <div class="nav-links">
-            <a href="/dashboard">Fascicolo Paziente</a>
+            <% if (typeof isDoctor !== 'undefined' && isDoctor) { %>
+                <a href="/doctor">Area Medica</a>
+            <% } else { %>
+                <a href="/dashboard">Fascicolo Paziente</a>
+            <% } %>
             <a href="/logout">Disconnetti</a>
         </div>
     </nav>
@@ -49,7 +53,11 @@
             </div>
 
             <div class="text-center" style="margin-top: 40px;">
-                <a href="/dashboard" class="btn-secondary" style="padding: 10px 24px;">← Torna al Fascicolo</a>
+                <% if (typeof isDoctor !== 'undefined' && isDoctor) { %>
+                    <a href="/doctor" class="btn-secondary" style="padding: 10px 24px;">← Torna all'Area Medica</a>
+                <% } else { %>
+                    <a href="/dashboard" class="btn-secondary" style="padding: 10px 24px;">← Torna al Fascicolo</a>
+                <% } %>
             </div>
         </div>
     </div>

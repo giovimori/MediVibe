@@ -167,13 +167,14 @@ app.get('/doctor', (req, res) => {
 
 app.get('/report', (req, res) => {
     const reportId = req.query.id;
+    const isDoctor = req.cookies.isDoctor === 'true';
 
     const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = " + reportId;
     
     db.get(query, (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         
-        res.render('report', { report });
+        res.render('report', { report, isDoctor });
     });
 });
 
