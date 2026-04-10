@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediVibe - Area Medica Interattiva</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <nav class="navbar" style="border-bottom: 3px solid var(--secondary);">
+        <a href="/" class="logo" style="color: var(--secondary);">MediVibe Doctor</a>
+        <div class="nav-links">
+            <a href="/logout" style="color: var(--text-main); font-weight: 600;">Disconnetti</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 1100px;">
+        <div class="card wide">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
+                <div>
+                    <h1 style="margin: 0; color: var(--text-main); font-size: 24px; text-align: left;">Pannello di Gestione Pazienti</h1>
+                    <p style="color: var(--text-muted); margin-top: 5px; font-size: 14px;">Monitoraggio Pazienti Assegnati</p>
+                </div>
+                <span style="background: #d1fae5; color: #047857; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid #6ee7b7;">ACCESSO MEDICO AUTORIZZATO</span>
+            </div>
+            
+            <h3 style="color: var(--text-main); font-size: 18px; margin-bottom: 20px;">I Tuoi Pazienti</h3>
+            
+            <% if (patients && patients.length > 0) { %>
+                <div class="grid" style="margin-top: 0;">
+                    <% patients.forEach(function(p) { %>
+                        <div class="card" style="padding: 24px; max-width: 100%;">
+                            <h4 style="margin-bottom: 10px; font-size: 18px;"><%= p.name %></h4>
+                            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;"><a href="mailto:<%= p.email %>" style="color: var(--primary); text-decoration: none;"><%= p.email %></a></p>
+                            
+                            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Note Anamnestiche:</span>
+                                <div style="margin-top: 8px; font-size: 14px; color: var(--text-main); max-height: 100px; overflow-y: auto;">
+                                    <%- p.symptoms ? p.symptoms : "<em>Nessun sintomo registrato.</em>" %>
+                                </div>
+                            </div>
+                            
+                            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Documenti e Referti Caricati:</span>
+                                <div style="margin-top: 8px; font-size: 14px; color: var(--text-main);">
+                                    <% if (p.reports && p.reports.length > 0) { %>
+                                        <ul style="list-style-type: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+                                        <% p.reports.forEach(function(r) { %>
+                                            <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
+                                                <span><%= r.title %> <span style="color: var(--text-muted); font-size: 12px;">(#MV-<%= r.id %>)</span></span>
+                                                <div style="display: flex; gap: 10px;">
+                                                    <a href="/report?id=<%= r.id %>" style="color: var(--primary-hover); text-decoration: none; font-weight: 500;">Vedi Scheda</a>
+                                                    <% if (r.file_path) { %>
+                                                        <a href="<%= r.file_path %>" target="_blank" style="color: var(--secondary); text-decoration: none; font-weight: 500;">💾 Scarica File</a>
+                                                    <% } %>
+                                                </div>
+                                            </li>
+                                        <% }); %>
+                                        </ul>
+                                    <% } else { %>
+                                        <em>Nessun documento caricato dal paziente.</em>
+                                    <% } %>
+                                </div>
+                            </div>
+                            
+                            <p style="font-size: 13px; text-align: center; color: var(--text-muted); margin-top: 15px;">
+                                Ref Paziente Interno: #PT-<%= p.id %>
+                            </p>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div style="text-align: center; padding: 40px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                    <p style="color: var(--text-muted);">Nessun paziente ti ha ancora scelto come medico curante.</p>
+                </div>
+            <% } %>
+            
+        </div>
+    </div>
+</body>
+</html>

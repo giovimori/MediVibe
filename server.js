@@ -65,9 +65,12 @@ app.post('/login', (req, res) => {
 
         res.cookie('user_id', row.id);
         res.cookie('isAdmin', row.role === 'admin' ? 'true' : 'false');
+        res.cookie('isDoctor', row.role === 'doctor' ? 'true' : 'false');
         
         if (row.role === 'admin') {
             res.redirect('/admin');
+        } else if (row.role === 'doctor') {
+            res.redirect('/doctor');
         } else {
             res.redirect('/dashboard');
         }
@@ -82,13 +85,14 @@ app.post('/register', (req, res) => {
     const { name, email, password } = req.body;
     const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
     
-    db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", [name, email, hashedPassword], function(err) {
+    db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'patient')", [name, email, hashedPassword], function(err) {
         if (err) {
             return res.send("Errore durante la registrazione.");
         }
         
+        // Report sample scaricato
         db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 
-            [this.lastID, "Referto di base", "Il paziente gode di ottima salute.", null]);
+            [this.lastID, "Referto di benvenuto", "Nessun decorso da segnalare.", null]);
         
         res.redirect('/login');
     });
@@ -101,9 +105,32 @@ app.get('/dashboard', (req, res) => {
     db.get("SELECT * FROM users WHERE id = " + userId, (err, user) => {
         if (!user) return res.redirect('/login');
 
-        db.all("SELECT * FROM reports WHERE user_id = " + userId, (err, reports) => {
-            res.render('dashboard', { user, reports });
+        // Se l'utente non ha un dottore associato, forziamo la selezione
+        if (!user.doctor_id) {
+            db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
+                return res.render('dashboard', { user, reports: [], doctorsList: doctors, needsDoctor: true });
+            });
+            return;
+        }
+
+        // Se ha il dottore, continuiamo normalmente
+        db.get("SELECT name FROM users WHERE id = " + user.doctor_id, (err, doc) => {
+            user.doctor_name = doc ? doc.name : 'Assegnato';
+            db.all("SELECT * FROM reports WHERE user_id = " + userId, (err, reports) => {
+                res.render('dashboard', { user, reports, needsDoctor: false });
+            });
         });
+    });
+});
+
+app.post('/dashboard/select-doctor', (req, res) => {
+    const userId = req.cookies.user_id;
+    const doctorId = req.body.doctor_id;
+
+    if (!userId || !doctorId) return res.redirect('/dashboard');
+
+    db.run("UPDATE users SET doctor_id = ? WHERE id = ?", [doctorId, userId], (err) => {
+        res.redirect('/dashboard');
     });
 });
 
@@ -113,6 +140,28 @@ app.post('/dashboard/symptoms', (req, res) => {
 
     db.run("UPDATE users SET symptoms = ? WHERE id = ?", [symptoms, userId], (err) => {
         res.redirect('/dashboard');
+    });
+});
+
+app.get('/doctor', (req, res) => {
+    // Vulnerabile a Broken Access Control tramite manipolazione del cookie
+    if (req.cookies.isDoctor !== 'true') return res.send("Accesso Negato: Area Medici.");
+    
+    const userId = req.cookies.user_id;
+    
+    // Mostriamo solo i pazienti associati a questo dottore specifico
+    db.all("SELECT id, name, email, symptoms FROM users WHERE role = 'patient' AND doctor_id = " + userId, (err, patients) => {
+        if (!patients || patients.length === 0) {
+            return res.render('doctor', { patients: [] });
+        }
+        
+        const patientIds = patients.map(p => p.id).join(',');
+        db.all("SELECT id, user_id, title, file_path FROM reports WHERE user_id IN (" + patientIds + ")", (err, reports) => {
+            patients.forEach(p => {
+                p.reports = reports ? reports.filter(r => r.user_id === p.id) : [];
+            });
+            res.render('doctor', { patients });
+        });
     });
 });
 
@@ -136,6 +185,17 @@ app.get('/admin', (req, res) => {
     });
 });
 
+app.post('/admin/add-doctor', (req, res) => {
+    if (req.cookies.isAdmin !== 'true') return res.send("Accesso Negato.");
+    
+    const { name, email, password } = req.body;
+    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
+    
+    db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'doctor')", [name, email, hashedPassword], function(err) {
+        res.redirect('/admin');
+    });
+});
+
 app.post('/upload', upload.single('reportFile'), (req, res) => {
     const userId = req.cookies.user_id;
     const title = req.body.title || 'Nuovo Documento';
@@ -154,6 +214,7 @@ app.post('/upload', upload.single('reportFile'), (req, res) => {
 app.get('/logout', (req, res) => {
     res.clearCookie('user_id');
     res.clearCookie('isAdmin');
+    res.clearCookie('isDoctor');
     res.redirect('/login');
 });
 

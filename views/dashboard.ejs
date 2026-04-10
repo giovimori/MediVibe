@@ -21,59 +21,84 @@
             <p class="text-muted">Paziente: <strong style="color: var(--text-main);"><%= user.name %></strong></p>
         </div>
         
-        <div class="grid">
-            <div class="card wide" style="margin-top: 0; display: flex; flex-direction: column; gap: 20px;">
-                <h3><span style="font-size: 20px;">🩺</span> Cartella Clinica - Appunti Medico/Paziente</h3>
-                
-                <div style="background: var(--bg-color); padding: 20px; border-radius: 10px; border: 1px solid var(--card-border); line-height: 1.6; color: var(--text-main); min-height: 100px;">
-                    <%- user.symptoms ? user.symptoms : "<em>Nessuna annotazione clinica presente. Aggiorna il box sottostante.</em>" %>
-                </div>
-
-                <form action="/dashboard/symptoms" method="POST" style="margin-top: 10px;">
+        <% if(needsDoctor) { %>
+            <div class="card" style="max-width: 600px; border-color: var(--primary); margin: 0 auto;">
+                <h3 style="color: var(--primary); text-align: center; justify-content: center; border: none;"><span style="font-size: 24px;">👨‍⚕️</span> Scelta del Medico Curante</h3>
+                <p style="text-align: center; margin-bottom: 20px; color: var(--text-muted);">Per proseguire e sbloccare le funzionalità del fascicolo devi indicare il medico referente della struttura che ti seguirà.</p>
+                <form action="/dashboard/select-doctor" method="POST" style="margin-top: 10px;">
                     <div class="form-group">
-                        <label for="symptoms" style="font-weight: 600;">Aggiungi o Aggiorna Anamnesi</label>
-                        <textarea id="symptoms" name="symptoms" rows="5" placeholder="Descrivi il decorso clinico o le eventuali sintomatologie da riportare al curante..."><%= user.symptoms || '' %></textarea>
+                        <label for="doctor_id">Seleziona Medico e Conferma Definitivamente:</label>
+                        <select id="doctor_id" name="doctor_id" required style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; background: white;">
+                            <option value="">-- Seleziona Medico --</option>
+                            <% doctorsList.forEach(doc => { %>
+                                <option value="<%= doc.id %>"><%= doc.name %></option>
+                            <% }); %>
+                        </select>
                     </div>
-                    <button type="submit" class="btn-secondary" style="align-self: flex-start;">Salva nella Cartella</button>
+                    <button type="submit" style="margin-top: 15px;">Conferma Assegnazione</button>
                 </form>
             </div>
+        <% } else { %>
+            <div style="margin-bottom: 30px; padding: 15px 20px; background-color: var(--primary-light); border-left: 4px solid var(--primary); border-radius: 6px;">
+                <p style="margin: 0; color: var(--primary-hover); font-weight: 500;">
+                    👨‍⚕️ Medico Curante Assegnato: <strong><%= user.doctor_name %></strong>
+                </p>
+            </div>
 
-            <div style="display: flex; flex-direction: column; gap: 24px;">
-                <div class="card wide" style="margin-top: 0;">
-                    <h3><span style="font-size: 20px;">📁</span> Referti e Certificati Generati</h3>
-                    <div style="margin-top: 20px;">
-                        <% if (reports && reports.length > 0) { %>
-                            <% reports.forEach(function(report) { %>
-                                <div class="report-card">
-                                    <div>
-                                        <h3 style="color: var(--text-main); font-weight: 600; font-size: 15px;"><%= report.title %></h3>
-                                        <span style="font-size: 12px; color: var(--text-muted);">Doc ID: #MV-<%= report.id %>-2026</span>
-                                    </div>
-                                    <a href="/report?id=<%= report.id %>" class="btn" style="padding: 8px 16px; font-size: 13px; font-weight: 500; min-width: 120px;">Vedi Referto</a>
-                                </div>
-                            <% }); %>
-                        <% } else { %>
-                            <p style="color: var(--text-muted); font-size: 14px; padding: 20px 0;">Nessun referto clinico attualmente disponibile nel fascicolo.</p>
-                        <% } %>
+            <div class="grid">
+                <div class="card wide" style="margin-top: 0; display: flex; flex-direction: column; gap: 20px;">
+                    <h3><span style="font-size: 20px;">🩺</span> Cartella Clinica - Appunti Medico/Paziente</h3>
+                    
+                    <div style="background: var(--bg-color); padding: 20px; border-radius: 10px; border: 1px solid var(--card-border); line-height: 1.6; color: var(--text-main); min-height: 100px;">
+                        <%- user.symptoms ? user.symptoms : "<em>Nessuna annotazione clinica presente. Aggiorna il box sottostante.</em>" %>
                     </div>
-                </div>
 
-                <div class="card wide" style="margin-top: 0; background-color: var(--primary-light); border-color: var(--primary);">
-                    <h3 style="color: var(--primary-hover); border-bottom-color: rgba(2, 132, 199, 0.2);"><span style="font-size: 20px;">📤</span> Carica Nuovo Documento Esterno</h3>
-                    <form action="/upload" method="POST" enctype="multipart/form-data" style="margin-top: 20px;">
+                    <form action="/dashboard/symptoms" method="POST" style="margin-top: 10px;">
                         <div class="form-group">
-                            <label for="title" style="color: var(--primary-hover);">Titolo Documento</label>
-                            <input type="text" id="title" name="title" required placeholder="Es. Esame Emocromocitometrico G. Morelli">
+                            <label for="symptoms" style="font-weight: 600;">Aggiungi o Aggiorna Anamnesi</label>
+                            <textarea id="symptoms" name="symptoms" rows="5" placeholder="Descrivi il decorso clinico o le eventuali sintomatologie da riportare al curante..."><%= user.symptoms || '' %></textarea>
                         </div>
-                        <div class="form-group">
-                            <label for="reportFile" style="color: var(--primary-hover);">File Allegato</label>
-                            <input type="file" id="reportFile" name="reportFile" required style="background: white; border-color: rgba(2, 132, 199, 0.3);">
-                        </div>
-                        <button type="submit" style="align-self: flex-start; margin-top: 5px;">Carica in Cartella</button>
+                        <button type="submit" class="btn-secondary" style="align-self: flex-start;">Salva nella Cartella</button>
                     </form>
                 </div>
+
+                <div style="display: flex; flex-direction: column; gap: 24px;">
+                    <div class="card wide" style="margin-top: 0;">
+                        <h3><span style="font-size: 20px;">📁</span> Referti e Certificati Generati</h3>
+                        <div style="margin-top: 20px;">
+                            <% if (reports && reports.length > 0) { %>
+                                <% reports.forEach(function(report) { %>
+                                    <div class="report-card">
+                                        <div>
+                                            <h3 style="color: var(--text-main); font-weight: 600; font-size: 15px;"><%= report.title %></h3>
+                                            <span style="font-size: 12px; color: var(--text-muted);">Doc ID: #MV-<%= report.id %>-2026</span>
+                                        </div>
+                                        <a href="/report?id=<%= report.id %>" class="btn" style="padding: 8px 16px; font-size: 13px; font-weight: 500; min-width: 120px;">Vedi Referto</a>
+                                    </div>
+                                <% }); %>
+                            <% } else { %>
+                                <p style="color: var(--text-muted); font-size: 14px; padding: 20px 0;">Nessun referto clinico attualmente disponibile nel fascicolo.</p>
+                            <% } %>
+                        </div>
+                    </div>
+
+                    <div class="card wide" style="margin-top: 0; background-color: var(--primary-light); border-color: var(--primary);">
+                        <h3 style="color: var(--primary-hover); border-bottom-color: rgba(2, 132, 199, 0.2);"><span style="font-size: 20px;">📤</span> Carica Nuovo Documento Esterno</h3>
+                        <form action="/upload" method="POST" enctype="multipart/form-data" style="margin-top: 20px;">
+                            <div class="form-group">
+                                <label for="title" style="color: var(--primary-hover);">Titolo Documento</label>
+                                <input type="text" id="title" name="title" required placeholder="Es. Esame Emocromocitometrico G. Morelli">
+                            </div>
+                            <div class="form-group">
+                                <label for="reportFile" style="color: var(--primary-hover);">File Allegato</label>
+                                <input type="file" id="reportFile" name="reportFile" required style="background: white; border-color: rgba(2, 132, 199, 0.3);">
+                            </div>
+                            <button type="submit" style="align-self: flex-start; margin-top: 5px;">Carica in Cartella</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-        </div>
+        <% } %>
     </div>
 </body>
 </html>
