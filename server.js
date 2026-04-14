@@ -44,16 +44,16 @@ app.post('/login', (req, res) => {
     
     const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
 
-    const query = "SELECT * FROM users WHERE email = '" + email + "' AND password = '" + hashedPassword + "'";
+    const query = "SELECT * FROM users WHERE email = ? AND password = ?";
     
-    db.get(query, (err, row) => {
+    db.get(query, [email, hashedPassword], (err, row) => {
         if (err) {
             console.error(err);
             return res.render('login', { error: "Errore interno del database." });
         }
         
         if (!row) {
-            db.get("SELECT * FROM users WHERE email = '" + email + "'", (err2, row2) => {
+            db.get("SELECT * FROM users WHERE email = ?", [email], (err2, row2) => {
                 if (row2) {
                     return res.render('login', { error: "Password errata per l'utente " + email });
                 } else {
@@ -102,7 +102,7 @@ app.get('/dashboard', (req, res) => {
     const userId = req.cookies.user_id;
     if (!userId) return res.redirect('/login');
 
-    db.get("SELECT * FROM users WHERE id = " + userId, (err, user) => {
+    db.get("SELECT * FROM users WHERE id = ?", [userId], (err, user) => {
         if (!user) return res.redirect('/login');
 
         // Se l'utente non ha un dottore associato, forziamo la selezione
@@ -114,9 +114,9 @@ app.get('/dashboard', (req, res) => {
         }
 
         // Se ha il dottore, continuiamo normalmente
-        db.get("SELECT name FROM users WHERE id = " + user.doctor_id, (err, doc) => {
+        db.get("SELECT name FROM users WHERE id = ?", [user.doctor_id], (err, doc) => {
             user.doctor_name = doc ? doc.name : 'Assegnato';
-            db.all("SELECT * FROM reports WHERE user_id = " + userId, (err, reports) => {
+            db.all("SELECT * FROM reports WHERE user_id = ?", [userId], (err, reports) => {
                 res.render('dashboard', { user, reports, needsDoctor: false });
             });
         });
@@ -150,13 +150,14 @@ app.get('/doctor', (req, res) => {
     const userId = req.cookies.user_id;
     
     // Mostriamo solo i pazienti associati a questo dottore specifico
-    db.all("SELECT id, name, email, symptoms FROM users WHERE role = 'patient' AND doctor_id = " + userId, (err, patients) => {
+    db.all("SELECT id, name, email, symptoms FROM users WHERE role = 'patient' AND doctor_id = ?", [userId], (err, patients) => {
         if (!patients || patients.length === 0) {
             return res.render('doctor', { patients: [] });
         }
         
-        const patientIds = patients.map(p => p.id).join(',');
-        db.all("SELECT id, user_id, title, file_path FROM reports WHERE user_id IN (" + patientIds + ")", (err, reports) => {
+        const patientIds = patients.map(p => p.id);
+        const placeholders = patientIds.map(() => '?').join(',');
+        db.all("SELECT id, user_id, title, file_path FROM reports WHERE user_id IN (" + placeholders + ")", patientIds, (err, reports) => {
             patients.forEach(p => {
                 p.reports = reports ? reports.filter(r => r.user_id === p.id) : [];
             });
@@ -169,9 +170,9 @@ app.get('/report', (req, res) => {
     const reportId = req.query.id;
     const isDoctor = req.cookies.isDoctor === 'true';
 
-    const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = " + reportId;
+    const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = ?";
     
-    db.get(query, (err, report) => {
+    db.get(query, [reportId], (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         
         res.render('report', { report, isDoctor });

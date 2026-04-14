@@ -28,7 +28,7 @@ db.serialize(() => {
     db.get("SELECT * FROM users WHERE email = 'admin@medivibe.com'", (err, row) => {
         if (!row) {
             const pwd = crypto.createHash('md5').update('admin123').digest('hex');
-            db.run(`INSERT INTO users (name, email, password, role) VALUES ('Amministrazione', 'admin@medivibe.com', '${pwd}', 'admin')`);
+            db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`, ['Amministrazione', 'admin@medivibe.com', pwd, 'admin']);
         }
     });
 
@@ -40,10 +40,10 @@ db.serialize(() => {
     ];
 
     defaultDoctors.forEach(doc => {
-        db.get(`SELECT * FROM users WHERE email = '${doc.email}'`, (err, row) => {
+        db.get(`SELECT * FROM users WHERE email = ?`, [doc.email], (err, row) => {
             if (!row) {
                 const docPwd = crypto.createHash('md5').update('doc123').digest('hex');
-                db.run(`INSERT INTO users (name, email, password, role) VALUES ('${doc.name}', '${doc.email}', '${docPwd}', 'doctor')`);
+                db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`, [doc.name, doc.email, docPwd, 'doctor']);
             }
         });
     });
