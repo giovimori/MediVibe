@@ -167,14 +167,23 @@ app.get('/doctor', (req, res) => {
 
 app.get('/report', (req, res) => {
     const reportId = req.query.id;
+    const userId = req.cookies.user_id;
     const isDoctor = req.cookies.isDoctor === 'true';
+    const isAdmin = req.cookies.isAdmin === 'true';
 
-    const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = " + reportId;
+    if (!userId) return res.send("Accesso Negato: Effettua il login.");
+
+    const query = "SELECT r.*, u.name as patient_name, u.doctor_id FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = ?";
     
-    db.get(query, (err, report) => {
+    db.get(query, [reportId], (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         
-        res.render('report', { report, isDoctor });
+        // Controllo IDOR previeni accesso non autorizzato
+        if (isAdmin || report.user_id == userId || report.doctor_id == userId) {
+            res.render('report', { report, isDoctor });
+        } else {
+            res.send("Accesso Negato: Non possiedi i permessi per visualizzare questo referto.");
+        }
     });
 });
 
