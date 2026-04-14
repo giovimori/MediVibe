@@ -2,6 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath);
@@ -27,7 +28,7 @@ db.serialize(() => {
 
     db.get("SELECT * FROM users WHERE email = 'admin@medivibe.com'", (err, row) => {
         if (!row) {
-            const pwd = crypto.createHash('md5').update('admin123').digest('hex');
+            const pwd = bcrypt.hashSync('admin123', 10);
             db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`, ['Amministrazione', 'admin@medivibe.com', pwd, 'admin']);
         }
     });
@@ -42,7 +43,7 @@ db.serialize(() => {
     defaultDoctors.forEach(doc => {
         db.get(`SELECT * FROM users WHERE email = ?`, [doc.email], (err, row) => {
             if (!row) {
-                const docPwd = crypto.createHash('md5').update('doc123').digest('hex');
+                const docPwd = bcrypt.hashSync('doc123', 10);
                 db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`, [doc.name, doc.email, docPwd, 'doctor']);
             }
         });

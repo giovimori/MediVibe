@@ -1,7 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
-const crypto = require('crypto');
+const bcrypt = require('bcrypt'); 
 const multer = require('multer');
 const db = require('./db');
 
@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-    secret: 'Chiave_Segreta_MediVibe_Super_Sicura_2026', 
+    secret: 'Chiave_Segreta_MediVibe_Super_Sicura_2026',
     resave: false,
     saveUninitialized: false,
     cookie: { 
@@ -49,39 +49,31 @@ app.get('/login', (req, res) => {
     res.render('login', { error: null });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
-    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
-
-    const query = "SELECT * FROM users WHERE email = ? AND password = ?";
+    const query = "SELECT * FROM users WHERE email = ?";
     
-    db.get(query, [email, hashedPassword], (err, row) => {
+    db.get(query, [email], async (err, row) => {
         if (err) {
             console.error(err);
             return res.render('login', { error: "Errore interno del database." });
         }
         
-        if (!row) {
-            db.get("SELECT * FROM users WHERE email = ?", [email], (err2, row2) => {
-                if (row2) {
-                    return res.render('login', { error: "Password errata per l'utente " + email });
-                } else {
-                    return res.render('login', { error: "Utente non trovato nel sistema." });
-                }
-            });
-            return;
-        }
-
-        req.session.userId = row.id;
-        req.session.role = row.role;
-        
-        if (row.role === 'admin') {
-            res.redirect('/admin');
-        } else if (row.role === 'doctor') {
-            res.redirect('/doctor');
+        if (row && await bcrypt.compare(password, row.password)) {
+            req.session.userId = row.id;
+            req.session.role = row.role;
+            
+            if (row.role === 'admin') {
+                res.redirect('/admin');
+            } else if (row.role === 'doctor') {
+                res.redirect('/doctor');
+            } else {
+                res.redirect('/dashboard');
+            }
         } else {
-            res.redirect('/dashboard');
+            // Messaggio generico per prevenire User Enumeration [cite: 112]
+            return res.render('login', { error: "Credenziali non valide." });
         }
     });
 });
@@ -89,31 +81,37 @@ app.post('/login', (req, res) => {
 app.get('/register', (req, res) => {
     db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
          res.render('register', { doctors: doctors || [] });
+
     });
 });
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
     const { name, email, password, doctor_id } = req.body;
-    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
     
-    db.run("INSERT INTO users (name, email, password, role, doctor_id) VALUES (?, ?, ?, 'patient', ?)", 
-    [name, email, hashedPassword, doctor_id || null], function(err) {
-        if (err) {
-            return res.send("Errore durante la registrazione.");
-        }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
         
-        db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 
-            [this.lastID, "Referto di base", "Il paziente gode di ottima salute.", null]);
-        
-        res.redirect('/login');
-    });
+        db.run("INSERT INTO users (name, email, password, role, doctor_id) VALUES (?, ?, ?, 'patient', ?)", 
+        [name, email, hashedPassword, doctor_id || null], function(err) {
+            if (err) {
+                return res.send("Errore durante la registrazione.");
+            }
+            
+            db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 
+                [this.lastID, "Referto di base", "Il paziente gode di ottima salute.", null]);
+            
+            res.redirect('/login');
+        });
+    } catch (e) {
+        res.status(500).send("Errore nella cifratura della password.");
+    }
 });
 
 app.get('/dashboard', (req, res) => {
     const userId = req.session.userId;
     if (!userId) return res.redirect('/login');
+    if (req.session.role !== 'patient') return res.status(403).send("Non autorizzato.");
 
-    if (req.session.role !== 'patient') return res.status(403).send("Accesso non autorizzato. Area riservata ai pazienti.");
 
     const query = `
         SELECT u.*, d.name as doctor_name 
@@ -124,27 +122,17 @@ app.get('/dashboard', (req, res) => {
 
     db.get(query, [userId], (err, user) => {
         if (!user) return res.redirect('/login');
-
         const needsDoctor = !user.doctor_id;
 
         db.all("SELECT * FROM reports WHERE user_id = ?", [userId], (err, reports) => {
-            if (needsDoctor) {
-                db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
-                    res.render('dashboard', { 
-                        user: user, 
-                        reports: reports || [], 
-                        needsDoctor: true, 
-                        doctorsList: doctors || [] 
-                    });
-                });
-            } else {
+            db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
                 res.render('dashboard', { 
                     user: user, 
                     reports: reports || [], 
-                    needsDoctor: false, 
-                    doctorsList: [] 
+                    needsDoctor: needsDoctor, 
+                    doctorsList: doctors || [] 
                 });
-            }
+            });
         });
     });
 });
@@ -152,10 +140,8 @@ app.get('/dashboard', (req, res) => {
 app.post('/dashboard/select-doctor', (req, res) => {
     const userId = req.session.userId;
     const doctorId = req.body.doctor_id;
-
     if (!userId || req.session.role !== 'patient') return res.status(403).send("Non autorizzato");
-
-    db.run("UPDATE users SET doctor_id = ? WHERE id = ?", [doctorId, userId], (err) => {
+    db.run("UPDATE users SET doctor_id = ? WHERE id = ?", [doctorId, userId], () => {
         res.redirect('/dashboard');
     });
 });
@@ -163,10 +149,7 @@ app.post('/dashboard/select-doctor', (req, res) => {
 app.post('/dashboard/symptoms', (req, res) => {
     const userId = req.session.userId;
     if (!userId || req.session.role !== 'patient') return res.status(403).send("Non autorizzato");
-    
-    const symptoms = req.body.symptoms;
-
-    db.run("UPDATE users SET symptoms = ? WHERE id = ?", [symptoms, userId], (err) => {
+    db.run("UPDATE users SET symptoms = ? WHERE id = ?", [req.body.symptoms, userId], () => {
         res.redirect('/dashboard');
     });
 });
@@ -199,14 +182,9 @@ app.get('/doctor', (req, res) => {
 });
 
 app.get('/report', (req, res) => {
-    const userId = req.session.userId;
-    if (!userId) return res.redirect('/login');
-    
-    const reportId = req.query.id;
-
+    if (!req.session.userId) return res.redirect('/login');
     const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = ?";
-    
-    db.get(query, [reportId], (err, report) => {
+    db.get(query, [req.query.id], (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         res.render('report', { report });
     });
@@ -216,7 +194,6 @@ app.get('/admin', (req, res) => {
     if (!req.session.userId || req.session.role !== 'admin') {
         return res.status(403).send("Accesso Negato. Violazione dei privilegi rilevata.");
     }
-    
     db.all("SELECT id, name, email, role FROM users", (err, users) => {
         res.render('admin', { users });
     });
@@ -226,11 +203,9 @@ app.post('/upload', upload.single('reportFile'), (req, res) => {
     const userId = req.session.userId;
     if (!userId) return res.redirect('/login');
 
-    const title = req.body.title || 'Nuovo Documento';
-    
     if (req.file) {
         const filePath = '/uploads/' + req.file.filename;
-        db.run("INSERT INTO reports (user_id, title, file_path) VALUES (?, ?, ?)", [userId, title, filePath], () => {
+        db.run("INSERT INTO reports (user_id, title, file_path) VALUES (?, ?, ?)", [userId, req.body.title || 'Nuovo Documento', filePath], () => {
             sendMockEmail("admin@medivibe.com", "Nuovo file caricato");
             res.redirect('/dashboard');
         });
@@ -240,16 +215,14 @@ app.post('/upload', upload.single('reportFile'), (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    req.session.destroy((err) => {
+    req.session.destroy(() => {
         res.clearCookie('connect.sid'); 
         res.redirect('/login');
     });
 });
 
 const fs = require('fs');
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 app.listen(port, () => {
     console.log(`[+] MediVibe Server in ascolto su http://localhost:${port}`);
