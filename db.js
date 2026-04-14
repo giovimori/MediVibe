@@ -3,9 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+require('dotenv').config();
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath);
+const db = new sqlite3.Database('./database.sqlite');
 
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -13,8 +13,8 @@ db.serialize(() => {
         name TEXT,
         email TEXT UNIQUE,
         password TEXT,
+        role TEXT,
         symptoms TEXT,
-        role TEXT DEFAULT 'patient',
         doctor_id INTEGER
     )`);
 
@@ -23,12 +23,16 @@ db.serialize(() => {
         user_id INTEGER,
         title TEXT,
         content TEXT,
-        file_path TEXT
+        file_path TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
-    db.get("SELECT * FROM users WHERE email = 'admin@medivibe.com'", (err, row) => {
+    const adminPass = process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeMe123!';
+    const docPass = process.env.DEFAULT_DOCTOR_PASSWORD || 'ChangeMeDoc!';
+
+    db.get("SELECT id FROM users WHERE email = 'admin@medivibe.com'", async (err, row) => {
         if (!row) {
-            const pwd = bcrypt.hashSync('admin123', 10);
+            const pwd = bcrypt.hashSync(adminPass, 10);
             db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`, ['Amministrazione', 'admin@medivibe.com', pwd, 'admin']);
         }
     });
@@ -43,7 +47,7 @@ db.serialize(() => {
     defaultDoctors.forEach(doc => {
         db.get(`SELECT * FROM users WHERE email = ?`, [doc.email], (err, row) => {
             if (!row) {
-                const docPwd = bcrypt.hashSync('doc123', 10);
+                const docPwd = bcrypt.hashSync(docPass, 10);
                 db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`, [doc.name, doc.email, docPwd, 'doctor']);
             }
         });
