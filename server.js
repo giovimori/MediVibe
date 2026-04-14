@@ -1,7 +1,7 @@
 const express = require('express');
-const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const path = require('path');
-const crypto = require('crypto');
+const bcrypt = require('bcrypt'); 
 const multer = require('multer');
 const db = require('./db');
 
@@ -25,7 +25,17 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(cookieParser());
+
+app.use(session({
+    secret: 'Chiave_Segreta_MediVibe_2026', 
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        httpOnly: true,
+        secure: false,  
+        sameSite: 'lax' 
+    }
+}));
 
 function sendMockEmail(to, subject) {
     console.log(`[API MOCK] Using Key: ${SENDGRID_API_KEY} - Email sent to ${to}: ${subject}`);
@@ -39,171 +49,141 @@ app.get('/login', (req, res) => {
     res.render('login', { error: null });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
-    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
-
-    const query = "SELECT * FROM users WHERE email = '" + email + "' AND password = '" + hashedPassword + "'";
+    const query = "SELECT * FROM users WHERE email = ?";
     
-    db.get(query, (err, row) => {
+    db.get(query, [email], async (err, row) => {
         if (err) {
             console.error(err);
             return res.render('login', { error: "Errore interno del database." });
         }
         
-        if (!row) {
-            db.get("SELECT * FROM users WHERE email = '" + email + "'", (err2, row2) => {
-                if (row2) {
-                    return res.render('login', { error: "Password errata per l'utente " + email });
-                } else {
-                    return res.render('login', { error: "Utente non trovato nel sistema." });
-                }
-            });
-            return;
-        }
-
-        res.cookie('user_id', row.id);
-        res.cookie('isAdmin', row.role === 'admin' ? 'true' : 'false');
-        res.cookie('isDoctor', row.role === 'doctor' ? 'true' : 'false');
-        
-        if (row.role === 'admin') {
-            res.redirect('/admin');
-        } else if (row.role === 'doctor') {
-            res.redirect('/doctor');
+        if (row && await bcrypt.compare(password, row.password)) {
+            req.session.userId = row.id;
+            req.session.role = row.role;
+            
+            if (row.role === 'admin') {
+                res.redirect('/admin');
+            } else if (row.role === 'doctor') {
+                res.redirect('/doctor');
+            } else {
+                res.redirect('/dashboard');
+            }
         } else {
-            res.redirect('/dashboard');
+            // Messaggio generico per prevenire User Enumeration [cite: 112]
+            return res.render('login', { error: "Credenziali non valide." });
         }
     });
 });
 
 app.get('/register', (req, res) => {
-    res.render('register');
-});
-
-app.post('/register', (req, res) => {
-    const { name, email, password } = req.body;
-    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
-    
-    db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'patient')", [name, email, hashedPassword], function(err) {
-        if (err) {
-            return res.send("Errore durante la registrazione.");
-        }
-        
-        // Report sample scaricato
-        db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 
-            [this.lastID, "Referto di benvenuto", "Nessun decorso da segnalare.", null]);
-        
-        res.redirect('/login');
+    db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
+         res.render('register', { doctors: doctors || [] });
     });
 });
 
+app.post('/register', async (req, res) => {
+    const { name, email, password, doctor_id } = req.body;
+    
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        db.run("INSERT INTO users (name, email, password, role, doctor_id) VALUES (?, ?, ?, 'patient', ?)", 
+        [name, email, hashedPassword, doctor_id || null], function(err) {
+            if (err) {
+                return res.send("Errore durante la registrazione.");
+            }
+            
+            db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 
+                [this.lastID, "Referto di base", "Il paziente gode di ottima salute.", null]);
+            
+            res.redirect('/login');
+        });
+    } catch (e) {
+        res.status(500).send("Errore nella cifratura della password.");
+    }
+});
+
 app.get('/dashboard', (req, res) => {
-    const userId = req.cookies.user_id;
+    const userId = req.session.userId;
     if (!userId) return res.redirect('/login');
+    if (req.session.role !== 'patient') return res.status(403).send("Non autorizzato.");
 
-    db.get("SELECT * FROM users WHERE id = " + userId, (err, user) => {
+    const query = `
+        SELECT u.*, d.name as doctor_name 
+        FROM users u 
+        LEFT JOIN users d ON u.doctor_id = d.id 
+        WHERE u.id = ?
+    `;
+
+    db.get(query, [userId], (err, user) => {
         if (!user) return res.redirect('/login');
+        const needsDoctor = !user.doctor_id;
 
-        // Se l'utente non ha un dottore associato, forziamo la selezione
-        if (!user.doctor_id) {
+        db.all("SELECT * FROM reports WHERE user_id = ?", [userId], (err, reports) => {
             db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
-                return res.render('dashboard', { user, reports: [], doctorsList: doctors, needsDoctor: true });
-            });
-            return;
-        }
-
-        // Se ha il dottore, continuiamo normalmente
-        db.get("SELECT name FROM users WHERE id = " + user.doctor_id, (err, doc) => {
-            user.doctor_name = doc ? doc.name : 'Assegnato';
-            db.all("SELECT * FROM reports WHERE user_id = " + userId, (err, reports) => {
-                res.render('dashboard', { user, reports, needsDoctor: false });
+                res.render('dashboard', { 
+                    user: user, 
+                    reports: reports || [], 
+                    needsDoctor: needsDoctor, 
+                    doctorsList: doctors || [] 
+                });
             });
         });
     });
 });
 
 app.post('/dashboard/select-doctor', (req, res) => {
-    const userId = req.cookies.user_id;
+    const userId = req.session.userId;
     const doctorId = req.body.doctor_id;
-
-    if (!userId || !doctorId) return res.redirect('/dashboard');
-
-    db.run("UPDATE users SET doctor_id = ? WHERE id = ?", [doctorId, userId], (err) => {
+    if (!userId || req.session.role !== 'patient') return res.status(403).send("Non autorizzato");
+    db.run("UPDATE users SET doctor_id = ? WHERE id = ?", [doctorId, userId], () => {
         res.redirect('/dashboard');
     });
 });
 
 app.post('/dashboard/symptoms', (req, res) => {
-    const userId = req.cookies.user_id;
-    const symptoms = req.body.symptoms;
-
-    db.run("UPDATE users SET symptoms = ? WHERE id = ?", [symptoms, userId], (err) => {
+    const userId = req.session.userId;
+    if (!userId || req.session.role !== 'patient') return res.status(403).send("Non autorizzato");
+    db.run("UPDATE users SET symptoms = ? WHERE id = ?", [req.body.symptoms, userId], () => {
         res.redirect('/dashboard');
     });
 });
 
 app.get('/doctor', (req, res) => {
-    // Vulnerabile a Broken Access Control tramite manipolazione del cookie
-    if (req.cookies.isDoctor !== 'true') return res.send("Accesso Negato: Area Medici.");
-    
-    const userId = req.cookies.user_id;
-    
-    // Mostriamo solo i pazienti associati a questo dottore specifico
-    db.all("SELECT id, name, email, symptoms FROM users WHERE role = 'patient' AND doctor_id = " + userId, (err, patients) => {
-        if (!patients || patients.length === 0) {
-            return res.render('doctor', { patients: [] });
-        }
-        
-        const patientIds = patients.map(p => p.id).join(',');
-        db.all("SELECT id, user_id, title, file_path FROM reports WHERE user_id IN (" + patientIds + ")", (err, reports) => {
-            patients.forEach(p => {
-                p.reports = reports ? reports.filter(r => r.user_id === p.id) : [];
-            });
-            res.render('doctor', { patients });
+    const doctorId = req.session.userId;
+    if (!doctorId || req.session.role !== 'doctor') return res.status(403).send("Accesso Negato.");
+    db.get("SELECT * FROM users WHERE id = ?", [doctorId], (err, doctor) => {
+        db.all("SELECT * FROM users WHERE doctor_id = ?", [doctorId], (err, patients) => {
+            res.render('doctor', { doctor, patients });
         });
     });
 });
 
 app.get('/report', (req, res) => {
-    const reportId = req.query.id;
-    const isDoctor = req.cookies.isDoctor === 'true';
-
-    const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = " + reportId;
-    
-    db.get(query, (err, report) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const query = "SELECT r.*, u.name as patient_name FROM reports r JOIN users u ON r.user_id = u.id WHERE r.id = ?";
+    db.get(query, [req.query.id], (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
-        
-        res.render('report', { report, isDoctor });
+        res.render('report', { report });
     });
 });
 
 app.get('/admin', (req, res) => {
-    if (req.cookies.isAdmin !== 'true') return res.send("Accesso Negato.");
-    
+    if (!req.session.userId || req.session.role !== 'admin') return res.status(403).send("Accesso Negato.");
     db.all("SELECT id, name, email, role FROM users", (err, users) => {
         res.render('admin', { users });
     });
 });
 
-app.post('/admin/add-doctor', (req, res) => {
-    if (req.cookies.isAdmin !== 'true') return res.send("Accesso Negato.");
-    
-    const { name, email, password } = req.body;
-    const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
-    
-    db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'doctor')", [name, email, hashedPassword], function(err) {
-        res.redirect('/admin');
-    });
-});
-
 app.post('/upload', upload.single('reportFile'), (req, res) => {
-    const userId = req.cookies.user_id;
-    const title = req.body.title || 'Nuovo Documento';
-    
+    const userId = req.session.userId;
+    if (!userId) return res.redirect('/login');
     if (req.file) {
         const filePath = '/uploads/' + req.file.filename;
-        db.run("INSERT INTO reports (user_id, title, file_path) VALUES (?, ?, ?)", [userId, title, filePath], () => {
+        db.run("INSERT INTO reports (user_id, title, file_path) VALUES (?, ?, ?)", [userId, req.body.title || 'Nuovo Documento', filePath], () => {
             sendMockEmail("admin@medivibe.com", "Nuovo file caricato");
             res.redirect('/dashboard');
         });
@@ -213,17 +193,13 @@ app.post('/upload', upload.single('reportFile'), (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    res.clearCookie('user_id');
-    res.clearCookie('isAdmin');
-    res.clearCookie('isDoctor');
-    res.redirect('/login');
+    req.session.destroy(() => {
+        res.clearCookie('connect.sid'); 
+        res.redirect('/login');
+    });
 });
 
 const fs = require('fs');
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-app.listen(port, () => {
-    console.log(`[+] MediVibe Server in ascolto su http://localhost:${port}`);
-});
+app.listen(port, () => console.log(`[+] MediVibe attivo su http://localhost:${port}`));
