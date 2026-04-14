@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const db = require('./db');
@@ -13,10 +14,28 @@ const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) { cb(null, uploadDir) },
-    filename: function (req, file, cb) { cb(null, file.originalname) }
+    destination: function (req, file, cb) {
+        cb(null, uploadDir)
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = crypto.randomBytes(16).toString('hex');
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, uniqueSuffix + ext);
+    }
 });
-const upload = multer({ storage: storage });
+
+const fileFilter = (req, file, cb) => {
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedExtensions.includes(ext)) {
+        cb(null, true);
+    } else {
+        cb(null, false);
+    }
+};
+
+const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
