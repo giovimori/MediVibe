@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
 const session = require('express-session');
 const path = require('path');
 const crypto = require('crypto');
@@ -8,6 +9,7 @@ const multer = require('multer');
 const db = require('./db');
 
 const app = express();
+app.use(helmet()); // Aggiunge difesa in profondità e header HTTP sicuri
 const port = 3000;
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
