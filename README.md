@@ -83,4 +83,28 @@ Il codice presente in questo branch è affetto dalle seguenti criticità, discus
 6. **A01:2025 - IDOR (Insecure Direct Object Reference):** L'endpoint per la visualizzazione dei referti non verifica la proprietà della risorsa, permettendo l'accesso non autorizzato ai dati di altri pazienti manipolando l'ID nella richiesta `GET`.
 
 ---
+
+## Security Integration Tests (Verifica delle Vulnerabilità)
+
+In questa versione del codice, sono stati implementati dei test di integrazione automatici volti a dimostrare che tutte le vulnerabilità note (SQL Injection, Broken Access Control, IDOR, ecc.) sono effettivamente presenti e sfruttabili.
+
+### Come funzionano i test
+I test eseguono le seguenti operazioni:
+- Avviano in automatico un'istanza del server Express in un processo separato su una porta pulita.
+- Eseguono delle richieste HTTP simulate verso l'istanza del server per testare i vari vettori d'attacco.
+- Interrogano direttamente il database SQLite per verificare i formati di hashing delle credenziali.
+- Stampano in console l'output dettagliato di debug (valore atteso vs valore effettivo rilevato) per facilitare l'analisi delle criticità.
+
+Essendo questa la versione vulnerabile dell'app, **tutti e 7 i test falliranno** confermando la presenza dei problemi di sicurezza.
+
+### Come avviare i test
+Per eseguire la suite di test sequenziale:
+```bash
+npm test
+```
+
+### Mancanza di Helmet (HTTP Headers di Sicurezza)
+In questa versione insicura, la libreria **Helmet** non è configurata, lasciando l'applicazione priva di header HTTP protettivi (come HSTS, CSP, X-Content-Type-Options e X-Frame-Options).
+
+---
 **Autori:** Giovanni Morelli, Rei Mici
