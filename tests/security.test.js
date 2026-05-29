@@ -175,7 +175,8 @@ test('A01:2025 - Broken Access Control: Cookie manipulation bypass attempts', as
     const adminRes = await fetch('http://localhost:3000/admin', {
         headers: {
             'Cookie': 'isAdmin=true; user_id=1'
-        }
+        },
+        redirect: 'manual'
     });
     const adminBody = await adminRes.text();
     const isAdminBlocked = adminRes.status === 403 || adminRes.status === 302 || adminBody.includes('Accesso Negato');
@@ -185,7 +186,8 @@ test('A01:2025 - Broken Access Control: Cookie manipulation bypass attempts', as
     const doctorRes = await fetch('http://localhost:3000/doctor', {
         headers: {
             'Cookie': 'isDoctor=true; user_id=2'
-        }
+        },
+        redirect: 'manual'
     });
     const doctorBody = await doctorRes.text();
     const isDoctorBlocked = doctorRes.status === 403 || doctorRes.status === 302 || doctorBody.includes('Accesso Negato');
