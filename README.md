@@ -91,6 +91,28 @@ Questo ramo della repository contiene la versione messa in sicurezza. Le princip
 4. **Security Misconfiguration (Segreti Hardcoded):** Isolamento di chiavi API e credenziali di default tramite la libreria `dotenv`.
 5. **Insecure File Upload & Path Traversal:** Configurazione rigida di `multer` con generazione di identificativi univoci casuali per i nomi dei file e filtro rigoroso basato su whitelist di estensioni (`.pdf`, `.png`, `.jpg`, `.jpeg`).
 6. **IDOR (Insecure Direct Object Reference):** Implementazione di rigorosi controlli autorizzativi lato server per verificare l'identità e la proprietà delle risorse (referti) prima dell'accesso, impedendo la manipolazione diretta degli identificativi (ID) nelle richieste HTTP.
+7. **Defense-in-Depth (HTTP Headers):** Integrazione del middleware **Helmet** per configurare e forzare gli header di sicurezza HTTP (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) a livello globale, mitigando attacchi di Clickjacking, Cross-Site Scripting (XSS) e sniffing MIME.
+
+---
+
+## Security Integration Tests (Verifica delle Mitigazioni)
+
+In questo branch, sono stati implementati dei test di integrazione automatici volti a verificare che tutte le vulnerabilità note siano state effettivamente mitigate ed il sistema sia protetto.
+
+### Come funzionano i test
+I test eseguono le seguenti operazioni:
+- Avviano in automatico un'istanza del server Express in un processo separato su una porta pulita.
+- Eseguono delle richieste HTTP simulate verso l'istanza del server per testare i vari vettori d'attacco.
+- Interrogano direttamente il database SQLite per verificare che i formati di hashing delle credenziali siano sicuri (Bcrypt e non MD5).
+- Stampano in console l'output dettagliato di debug (valore atteso vs valore effettivo rilevato) per tracciare il comportamento del sistema.
+
+Essendo questa la versione sicura dell'app, **tutti e 7 i test passeranno con successo**, validando l'efficacia del processo di hardening.
+
+### Come avviare i test
+Per eseguire la suite di test sequenziale:
+```bash
+npm test
+```
 
 ---
 **Autori:** Giovanni Morelli, Rei Mici
