@@ -30,11 +30,18 @@ test('A02:2025 - Cryptographic Failures: Insecure MD5 Password Hashing', async (
     const passwordHash = await getAdminHash();
     db.close();
 
+    console.log(`\n[DEBUG Cryptographic Failures] Password hash letta per 'admin@medivibe.com': "${passwordHash}"`);
+
     assert.ok(passwordHash, "Admin password hash must be present in the database");
     
     // Check if it is MD5
     const isMD5 = /^[a-f0-9]{32}$/i.test(passwordHash);
     const isBcrypt = passwordHash.startsWith('$2') && passwordHash.length >= 60;
+
+    console.log(`[DEBUG Cryptographic Failures] Rilevato MD5 (32 hex chars)? ${isMD5}`);
+    console.log(`[DEBUG Cryptographic Failures] Rilevato Bcrypt (inizia con $2 e >= 60 chars)? ${isBcrypt}`);
+    console.log(`[DEBUG Cryptographic Failures] Valore atteso (isMD5): false`);
+    console.log(`[DEBUG Cryptographic Failures] Valore atteso (isBcrypt): true`);
 
     assert.strictEqual(isMD5, false, `Cryptographic Failure: Password hash is in insecure MD5 format: ${passwordHash}`);
     assert.strictEqual(isBcrypt, true, `Password hash should be secure bcrypt format but got: ${passwordHash}`);

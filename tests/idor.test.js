@@ -43,6 +43,9 @@ test('A01:2025 - IDOR: Accessing other patients reports', async () => {
     const reportIdB = await getReportId(emailB);
     db.close();
 
+    console.log(`\n[DEBUG IDOR] Eseguita registrazione di due pazienti (A e B).`);
+    console.log(`[DEBUG IDOR] Paziente A loggato. Richiesta di visualizzazione referto del Paziente B (ID Referto: ${reportIdB}) con sessione di Paziente A.`);
+
     assert.ok(reportIdB, "Patient B should have a report");
 
     // Patient A accesses Patient B's report
@@ -54,6 +57,11 @@ test('A01:2025 - IDOR: Accessing other patients reports', async () => {
 
     const body = await res.text();
     const isIdorBlocked = res.status === 403 || res.status === 302 || body.includes('Accesso Negato');
+
+    console.log(`[DEBUG IDOR] Stato Risposta HTTP: ${res.status}`);
+    console.log(`[DEBUG IDOR] Contenuto body parziale: "${body.substring(0, 50).replace(/\n/g, '')}..."`);
+    console.log(`[DEBUG IDOR] Valore atteso (Accesso bloccato?): true`);
+    console.log(`[DEBUG IDOR] Valore effettivo (Accesso bloccato?): ${isIdorBlocked}`);
 
     assert.strictEqual(isIdorBlocked, true, `IDOR Vulnerability: Patient A accessed Patient B's report (ID: ${reportIdB}) with status ${res.status}`);
 });
