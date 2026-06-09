@@ -81,6 +81,44 @@ const sessionConcurrencyCheck = (req, res, next) => {
 
 app.use(sessionConcurrencyCheck);
 
+// Middleware per impedire il Session Hijacking legando la sessione al fingerprint del client (IP e User-Agent)
+const sessionFingerprintCheck = (req, res, next) => {
+    if (req.session && req.session.userId) {
+        const currentIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const currentUserAgent = req.headers['user-agent'] || '';
+
+        // Se la sessione è attiva ma non ha ancora i dati del fingerprint, li associamo ora
+        if (!req.session.clientIp) {
+            req.session.clientIp = currentIp;
+        }
+        if (!req.session.clientUserAgent) {
+            req.session.clientUserAgent = currentUserAgent;
+        }
+
+        // Se viene rilevata una discrepanza tra il client attuale e quello che ha avviato la sessione
+        if (req.session.clientIp !== currentIp || req.session.clientUserAgent !== currentUserAgent) {
+            console.warn(`[SECURITY WARNING] Session hijacking attempt detected: mismatch in fingerprint for user ID ${req.session.userId}. Expected IP: ${req.session.clientIp}, Actual IP: ${currentIp}. Expected UA: ${req.session.clientUserAgent}, Actual UA: ${currentUserAgent}`);
+            
+            // Eliminiamo la sessione anche sul database per invalidarla del tutto
+            db.run("UPDATE users SET active_session_id = NULL WHERE id = ?", [req.session.userId], (dbErr) => {
+                if (dbErr) {
+                    console.error("Errore nell'annullamento della sessione nel DB:", dbErr);
+                }
+                req.session.destroy((err) => {
+                    if (err) console.error("Errore nella distruzione della sessione per fingerprint non corrispondente:", err);
+                    res.clearCookie('connect.sid');
+                    return res.status(403).send("Forbidden: session binding violation.");
+                });
+            });
+            return; // Interrompe la catena dei middleware
+        }
+    }
+    next();
+};
+
+app.use(sessionFingerprintCheck);
+
+
 function sendMockEmail(to, subject) {
     console.log(`[API MOCK] Using Key: ${SENDGRID_API_KEY} - Email sent to ${to}: ${subject}`);
 }
@@ -107,6 +145,8 @@ app.post('/login', async (req, res) => {
         if (row && await bcrypt.compare(password, row.password)) {
             req.session.userId = row.id;
             req.session.role = row.role;
+            req.session.clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            req.session.clientUserAgent = req.headers['user-agent'] || '';
             
             const sessionId = req.sessionID;
             db.run("UPDATE users SET active_session_id = ? WHERE id = ?", [sessionId, row.id], (dbErr) => {
