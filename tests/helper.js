@@ -34,7 +34,7 @@ function startServer() {
         // Spawn server
         serverProcess = spawn('node', ['server.js'], {
             cwd: path.resolve(__dirname, '..'),
-            env: { ...process.env, PORT: '3000' }
+            env: { ...process.env, PORT: '3000', NODE_ENV: 'test' }
         });
 
         let resolved = false;

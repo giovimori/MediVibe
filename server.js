@@ -44,7 +44,63 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Configurazione crittografia per la memorizzazione della sessione at-rest
+const SESSION_ALGORITHM = 'aes-256-cbc';
+const SESSION_ENCRYPTION_KEY = process.env.SESSION_ENCRYPTION_KEY 
+    ? crypto.scryptSync(process.env.SESSION_ENCRYPTION_KEY, 'salt-session', 32)
+    : crypto.scryptSync('fallback-encryption-key-for-sessions-at-rest', 'salt-session', 32);
+
+function encryptSession(text) {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(SESSION_ALGORITHM, SESSION_ENCRYPTION_KEY, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted;
+}
+
+function decryptSession(text) {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv(SESSION_ALGORITHM, SESSION_ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
+
+const sessionStore = new session.MemoryStore();
+const originalGet = sessionStore.get.bind(sessionStore);
+const originalSet = sessionStore.set.bind(sessionStore);
+
+sessionStore.set = (sid, sessionData, callback) => {
+    try {
+        const serialized = JSON.stringify(sessionData);
+        const encrypted = encryptSession(serialized);
+        originalSet(sid, { encryptedPayload: encrypted }, callback);
+    } catch (err) {
+        if (callback) callback(err);
+    }
+};
+
+sessionStore.get = (sid, callback) => {
+    originalGet(sid, (err, sessionData) => {
+        if (err) return callback(err);
+        if (!sessionData) return callback(null, null);
+        try {
+            if (sessionData.encryptedPayload) {
+                const decrypted = decryptSession(sessionData.encryptedPayload);
+                const deserialized = JSON.parse(decrypted);
+                return callback(null, deserialized);
+            }
+            return callback(null, sessionData);
+        } catch (decryptionErr) {
+            return callback(decryptionErr);
+        }
+    });
+};
+
 app.use(session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'fallback-secret-non-sicuro',
     resave: false,
     saveUninitialized: false,
@@ -329,6 +385,18 @@ app.get('/logout', (req, res) => {
         res.redirect('/login');
     }
 });
+
+if (process.env.NODE_ENV === 'test') {
+    app.get('/debug/raw-session/:sid', (req, res) => {
+        const sid = req.params.sid;
+        if (sessionStore && sessionStore.sessions && sessionStore.sessions[sid]) {
+            return res.json({
+                raw: sessionStore.sessions[sid]
+            });
+        }
+        return res.status(404).json({ error: "Session not found" });
+    });
+}
 
 const fs = require('fs');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
