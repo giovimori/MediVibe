@@ -55,6 +55,32 @@ app.use(session({
     }
 }));
 
+// Middleware per impedire login simultanei (controllo di concorrenza della sessione)
+const sessionConcurrencyCheck = (req, res, next) => {
+    if (req.session && req.session.userId) {
+        db.get("SELECT active_session_id FROM users WHERE id = ?", [req.session.userId], (err, row) => {
+            if (err) {
+                console.error("Errore nel controllo di concorrenza della sessione:", err);
+                return next();
+            }
+            if (row && row.active_session_id && row.active_session_id !== req.sessionID) {
+                console.log(`[CONCURRENCY CONTROL] Sessione ${req.sessionID} invalidata per l'utente ID ${req.session.userId} (nuova sessione attiva: ${row.active_session_id}).`);
+                req.session.destroy((err) => {
+                    if (err) console.error("Errore nella distruzione della sessione concorrente:", err);
+                    res.clearCookie('connect.sid');
+                    return res.render('login', { error: "Sessione terminata: è stato rilevato un accesso da un'altra postazione." });
+                });
+            } else {
+                next();
+            }
+        });
+    } else {
+        next();
+    }
+};
+
+app.use(sessionConcurrencyCheck);
+
 function sendMockEmail(to, subject) {
     console.log(`[API MOCK] Using Key: ${SENDGRID_API_KEY} - Email sent to ${to}: ${subject}`);
 }
@@ -82,13 +108,20 @@ app.post('/login', async (req, res) => {
             req.session.userId = row.id;
             req.session.role = row.role;
             
-            if (row.role === 'admin') {
-                res.redirect('/admin');
-            } else if (row.role === 'doctor') {
-                res.redirect('/doctor');
-            } else {
-                res.redirect('/dashboard');
-            }
+            const sessionId = req.sessionID;
+            db.run("UPDATE users SET active_session_id = ? WHERE id = ?", [sessionId, row.id], (dbErr) => {
+                if (dbErr) {
+                    console.error("Errore nell'aggiornamento della sessione attiva:", dbErr);
+                }
+                
+                if (row.role === 'admin') {
+                    res.redirect('/admin');
+                } else if (row.role === 'doctor') {
+                    res.redirect('/doctor');
+                } else {
+                    res.redirect('/dashboard');
+                }
+            });
         } else {
             // Messaggio generico per prevenire User Enumeration [cite: 112]
             return res.render('login', { error: "Credenziali non valide." });
@@ -244,10 +277,17 @@ app.post('/upload', upload.single('reportFile'), (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.clearCookie('connect.sid'); 
+    const userId = req.session ? req.session.userId : null;
+    if (userId) {
+        db.run("UPDATE users SET active_session_id = NULL WHERE id = ?", [userId], () => {
+            req.session.destroy(() => {
+                res.clearCookie('connect.sid'); 
+                res.redirect('/login');
+            });
+        });
+    } else {
         res.redirect('/login');
-    });
+    }
 });
 
 const fs = require('fs');

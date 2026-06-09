@@ -15,7 +15,8 @@ db.serialize(() => {
         password TEXT,
         role TEXT,
         symptoms TEXT,
-        doctor_id INTEGER
+        doctor_id INTEGER,
+        active_session_id TEXT
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS reports (

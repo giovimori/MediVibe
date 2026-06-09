@@ -11,10 +11,10 @@ const dbContent = fs.readFileSync(dbJsPath, 'utf8');
 const isVulnerableBranch = dbContent.includes('admin123');
 
 const adminEmail = 'admin@medivibe.com';
-const adminPassword = isVulnerableBranch ? 'admin123' : (process.env.DEFAULT_ADMIN_PASSWORD || 'AdminPassword2026!');
+const adminPassword = isVulnerableBranch ? 'admin123' : (process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeMe123!');
 
 const doctorEmail = 'dr.rossi@medivibe.com';
-const doctorPassword = isVulnerableBranch ? 'doc123' : (process.env.DEFAULT_DOCTOR_PASSWORD || 'DoctorPassword2026!');
+const doctorPassword = isVulnerableBranch ? 'doc123' : (process.env.DEFAULT_DOCTOR_PASSWORD || 'ChangeMeDoc!');
 
 let serverProcess;
 
