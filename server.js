@@ -227,21 +227,46 @@ app.post('/login', async (req, res) => {
 
 app.get('/register', (req, res) => {
     db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
-         res.render('register', { doctors: doctors || [] });
-
+         res.render('register', { doctors: doctors || [], error: null });
     });
 });
 
 app.post('/register', async (req, res) => {
     const { name, email, password, doctor_id } = req.body;
     
+    // Validazione e-mail (deve contenere almeno la @ e seguire un pattern standard)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || typeof email !== 'string' || !email.includes('@') || !emailRegex.test(email)) {
+        return db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
+             res.render('register', { 
+                 doctors: doctors || [], 
+                 error: "L'indirizzo email inserito non è valido o non contiene la @." 
+             });
+        });
+    }
+
+    // Validazione password (almeno 8 caratteri e almeno una lettera maiuscola)
+    if (!password || typeof password !== 'string' || password.length < 8 || !/[A-Z]/.test(password)) {
+        return db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
+             res.render('register', { 
+                 doctors: doctors || [], 
+                 error: "La password deve essere lunga almeno 8 caratteri e contenere almeno una lettera maiuscola." 
+             });
+        });
+    }
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         
         db.run("INSERT INTO users (name, email, password, role, doctor_id) VALUES (?, ?, ?, 'patient', ?)", 
         [name, email, hashedPassword, doctor_id || null], function(err) {
             if (err) {
-                return res.send("Errore durante la registrazione.");
+                return db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err2, doctors) => {
+                     res.render('register', { 
+                         doctors: doctors || [], 
+                         error: "Errore durante la registrazione (l'email potrebbe essere già registrata)." 
+                     });
+                });
             }
             
             db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 

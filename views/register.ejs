@@ -20,6 +20,10 @@
             <h1>Crea il tuo Fascicolo</h1>
             <p class="text-muted text-center" style="margin-bottom: 24px; font-size: 14px;">Iscriviti ora alla piattaforma ufficiale MediVibe per gestire referti e cartella clinica.</p>
             
+            <% if (typeof error !== 'undefined' && error) { %>
+                <div class="error"><%= error %></div>
+            <% } %>
+
             <form action="/register" method="POST">
                 <div class="form-group">
                     <label for="name">Nome Completo</label>
