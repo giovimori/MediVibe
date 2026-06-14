@@ -114,26 +114,32 @@ app.use(session({
     }
 }));
 
-// Middleware per impedire login simultanei (controllo di concorrenza della sessione)
+// Middleware: controllo concorrenza sessioni
 const sessionConcurrencyCheck = (req, res, next) => {
+    // utente autenticato ?
     if (req.session && req.session.userId) {
+        // recupero ID sessione valida
         db.get("SELECT active_session_id FROM users WHERE id = ?", [req.session.userId], (err, row) => {
             if (err) {
                 console.error("Errore nel controllo di concorrenza della sessione:", err);
                 return next();
             }
+            // se ID sessione corrente !== ID sessione memorizzato sul DB allora login più recente da un altro dispositivo
             if (row && row.active_session_id && row.active_session_id !== req.sessionID) {
                 console.log(`[CONCURRENCY CONTROL] Sessione ${req.sessionID} invalidata per l'utente ID ${req.session.userId} (nuova sessione attiva: ${row.active_session_id}).`);
+                // distruggo la sessione non valida, rimuovo il cookie sul browser del client + logout
                 req.session.destroy((err) => {
                     if (err) console.error("Errore nella distruzione della sessione concorrente:", err);
                     res.clearCookie('connect.sid');
                     return res.render('login', { error: "Sessione terminata: è stato rilevato un accesso da un'altra postazione." });
                 });
             } else {
+                // se gli ID == allora sessione valida
                 next();
             }
         });
     } else {
+        // utente non autenticato
         next();
     }
 };
