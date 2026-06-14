@@ -21,12 +21,14 @@ const storage = multer.diskStorage({
         cb(null, uploadDir)
     },
     filename: function (req, file, cb) {
+        // Ridenominazione con hash casuale
         const uniqueSuffix = crypto.randomBytes(16).toString('hex');
         const ext = path.extname(file.originalname).toLowerCase();
         cb(null, uniqueSuffix + ext);
     }
 });
 
+// Whitelist estensioni
 const fileFilter = (req, file, cb) => {
     const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -355,6 +357,7 @@ app.get('/doctor', (req, res) => {
 
 // 6. IDOR
 app.get('/report', (req, res) => {
+    // recupero identità utente memorizzata in sessione
     const userId = req.session.userId;
     const role = req.session.role;
 
@@ -365,6 +368,7 @@ app.get('/report', (req, res) => {
     db.get(query, [req.query.id], (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         
+        // verifica dei privilegi di accesso
         if (role === 'admin' || report.user_id == userId || report.doctor_id == userId) {
             res.render('report', { report });
         } else {
