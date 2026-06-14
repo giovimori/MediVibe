@@ -11,6 +11,7 @@ const port = 3000;
 const SENDGRID_API_KEY = "sg_test_12345_secret";
 
 const uploadDir = path.join(__dirname, 'public', 'uploads');
+// 5. Caricamento di File Insicuro
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadDir)
@@ -38,6 +39,10 @@ app.get('/', (req, res) => {
 app.get('/login', (req, res) => {
     res.render('login', { error: null });
 });
+
+// 1. SQLI
+// admin@medivibe.com' --
+// 1234
 
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
@@ -90,7 +95,6 @@ app.post('/register', (req, res) => {
             return res.send("Errore durante la registrazione.");
         }
         
-        // Report sample scaricato
         db.run("INSERT INTO reports (user_id, title, content, file_path) VALUES (?, ?, ?, ?)", 
             [this.lastID, "Referto di benvenuto", "Nessun decorso da segnalare.", null]);
         
@@ -105,7 +109,6 @@ app.get('/dashboard', (req, res) => {
     db.get("SELECT * FROM users WHERE id = " + userId, (err, user) => {
         if (!user) return res.redirect('/login');
 
-        // Se l'utente non ha un dottore associato, forziamo la selezione
         if (!user.doctor_id) {
             db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
                 return res.render('dashboard', { user, reports: [], doctorsList: doctors, needsDoctor: true });
@@ -113,7 +116,6 @@ app.get('/dashboard', (req, res) => {
             return;
         }
 
-        // Se ha il dottore, continuiamo normalmente
         db.get("SELECT name FROM users WHERE id = " + user.doctor_id, (err, doc) => {
             user.doctor_name = doc ? doc.name : 'Assegnato';
             db.all("SELECT * FROM reports WHERE user_id = " + userId, (err, reports) => {
@@ -144,12 +146,10 @@ app.post('/dashboard/symptoms', (req, res) => {
 });
 
 app.get('/doctor', (req, res) => {
-    // Vulnerabile a Broken Access Control tramite manipolazione del cookie
     if (req.cookies.isDoctor !== 'true') return res.send("Accesso Negato: Area Medici.");
     
     const userId = req.cookies.user_id;
     
-    // Mostriamo solo i pazienti associati a questo dottore specifico
     db.all("SELECT id, name, email, symptoms FROM users WHERE role = 'patient' AND doctor_id = " + userId, (err, patients) => {
         if (!patients || patients.length === 0) {
             return res.render('doctor', { patients: [] });
@@ -165,6 +165,7 @@ app.get('/doctor', (req, res) => {
     });
 });
 
+// 6. IDOR
 app.get('/report', (req, res) => {
     const reportId = req.query.id;
     const isDoctor = req.cookies.isDoctor === 'true';
