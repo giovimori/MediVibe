@@ -17,9 +17,11 @@ const storage = multer.diskStorage({
         cb(null, uploadDir)
     },
     filename: function (req, file, cb) {
+        // Trust input utente
         cb(null, file.originalname)
     }
 });
+// Tutte estensioni permesse
 const upload = multer({ storage: storage });
 
 app.set('view engine', 'ejs');
@@ -167,6 +169,7 @@ app.get('/doctor', (req, res) => {
 
 // 6. IDOR
 app.get('/report', (req, res) => {
+    // riferimento diretto a oggetti controllato dall'utente
     const reportId = req.query.id;
     const isDoctor = req.cookies.isDoctor === 'true';
 
@@ -175,6 +178,7 @@ app.get('/report', (req, res) => {
     db.get(query, (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         
+        // nessun controllo autorizzazione
         res.render('report', { report, isDoctor });
     });
 });
