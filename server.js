@@ -137,13 +137,13 @@ const sessionConcurrencyCheck = (req, res, next) => {
 
 app.use(sessionConcurrencyCheck);
 
-// Middleware per impedire il Session Hijacking legando la sessione al fingerprint del client (IP e User-Agent)
+// Middleware per impedire il Session Hijacking legando la sessione al fingerprint del client
 const sessionFingerprintCheck = (req, res, next) => {
     if (req.session && req.session.userId) {
         const currentIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         const currentUserAgent = req.headers['user-agent'] || '';
 
-        // Se la sessione è attiva ma non ha ancora i dati del fingerprint, li associamo ora
+        // Associa dati fingerprint se la sessione e attiva
         if (!req.session.clientIp) {
             req.session.clientIp = currentIp;
         }
@@ -166,7 +166,7 @@ const sessionFingerprintCheck = (req, res, next) => {
                     return res.status(403).send("Forbidden: session binding violation.");
                 });
             });
-            return; // Interrompe la catena dei middleware
+            return;
         }
     }
     next();
@@ -219,7 +219,6 @@ app.post('/login', async (req, res) => {
                 }
             });
         } else {
-            // Messaggio generico per prevenire User Enumeration [cite: 112]
             return res.render('login', { error: "Credenziali non valide." });
         }
     });
@@ -234,7 +233,7 @@ app.get('/register', (req, res) => {
 app.post('/register', async (req, res) => {
     const { name, email, password, doctor_id } = req.body;
     
-    // Validazione e-mail (deve contenere almeno la @ e seguire un pattern standard)
+    // Validazione email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || typeof email !== 'string' || !email.includes('@') || !emailRegex.test(email)) {
         return db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
@@ -245,7 +244,7 @@ app.post('/register', async (req, res) => {
         });
     }
 
-    // Validazione password (almeno 8 caratteri e almeno una lettera maiuscola)
+    // Validazione pwd
     if (!password || typeof password !== 'string' || password.length < 8 || !/[A-Z]/.test(password)) {
         return db.all("SELECT id, name FROM users WHERE role = 'doctor'", (err, doctors) => {
              res.render('register', { 
@@ -335,7 +334,6 @@ app.get('/doctor', (req, res) => {
     db.get("SELECT * FROM users WHERE id = ?", [doctorId], (err, doctor) => {
         if (!doctor) return res.redirect('/login');
 
-        // Mostriamo solo i pazienti associati a questo dottore specifico
         db.all("SELECT id, name, email, symptoms FROM users WHERE role = 'patient' AND doctor_id = ?", [doctorId], (err, patients) => {
             if (!patients || patients.length === 0) {
                 return res.render('doctor', { doctor, patients: [] });
@@ -364,7 +362,6 @@ app.get('/report', (req, res) => {
     db.get(query, [req.query.id], (err, report) => {
         if (err || !report) return res.send("Referto non trovato.");
         
-        // Controllo IDOR previeni accesso non autorizzato
         if (role === 'admin' || report.user_id == userId || report.doctor_id == userId) {
             res.render('report', { report });
         } else {
