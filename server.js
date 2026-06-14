@@ -15,6 +15,7 @@ const port = 3000;
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 
 const uploadDir = path.join(__dirname, 'public', 'uploads');
+// 5. Caricamento di File Insicuro
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadDir)
@@ -187,6 +188,7 @@ app.get('/login', (req, res) => {
     res.render('login', { error: null });
 });
 
+// 1. SQLI
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
@@ -351,6 +353,7 @@ app.get('/doctor', (req, res) => {
     });
 });
 
+// 6. IDOR
 app.get('/report', (req, res) => {
     const userId = req.session.userId;
     const role = req.session.role;
