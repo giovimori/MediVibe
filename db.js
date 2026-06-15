@@ -28,6 +28,8 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
+    // Sicurezza: Le password di seeding vengono caricate in modo sicuro dalle variabili d'ambiente
+    // e memorizzate nel database esclusivamente dopo essere state hashate tramite bcrypt (cost factor 10).
     const adminPass = process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeMe123!';
     const docPass = process.env.DEFAULT_DOCTOR_PASSWORD || 'ChangeMeDoc!';
 

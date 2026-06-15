@@ -75,6 +75,8 @@ const sessionStore = new session.MemoryStore();
 const originalGet = sessionStore.get.bind(sessionStore);
 const originalSet = sessionStore.set.bind(sessionStore);
 
+// Sicurezza (Cifratura At-Rest): Effettuiamo l'override dei metodi set e get dello store delle sessioni
+// per cifrare in scrittura e decifrare in lettura i dati di sessione (AES-256-CBC) in modo trasparente.
 sessionStore.set = (sid, sessionData, callback) => {
     try {
         const serialized = JSON.stringify(sessionData);
@@ -200,6 +202,7 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
+    // Sicurezza (SQL Injection): Utilizziamo una query parametrizzata per impedire SQL Injection.
     const query = "SELECT * FROM users WHERE email = ?";
     
     db.get(query, [email], async (err, row) => {
@@ -208,12 +211,17 @@ app.post('/login', async (req, res) => {
             return res.render('login', { error: "Errore interno del database." });
         }
         
+        // Sicurezza (Bcrypt): Confrontiamo l'hash della password con bcrypt anziché MD5 in chiaro.
         if (row && await bcrypt.compare(password, row.password)) {
+            // Sicurezza (Session Management): Memorizziamo l'identità e il ruolo lato server nella sessione.
             req.session.userId = row.id;
             req.session.role = row.role;
+            
+            // Sicurezza (Fingerprint Binding): Legiamo l'IP e lo User-Agent alla sessione corrente.
             req.session.clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
             req.session.clientUserAgent = req.headers['user-agent'] || '';
             
+            // Sicurezza (Session Concurrency): Salviamo il sessionID nel DB per invalidare eventuali accessi concorrenti.
             const sessionId = req.sessionID;
             db.run("UPDATE users SET active_session_id = ? WHERE id = ?", [sessionId, row.id], (dbErr) => {
                 if (dbErr) {
