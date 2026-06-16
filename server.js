@@ -70,6 +70,8 @@ app.post('/login', (req, res) => {
             return;
         }
 
+        //broken access control
+        //scrittura insicura in cookie
         res.cookie('user_id', row.id);
         res.cookie('isAdmin', row.role === 'admin' ? 'true' : 'false');
         res.cookie('isDoctor', row.role === 'doctor' ? 'true' : 'false');
@@ -183,6 +185,7 @@ app.get('/report', (req, res) => {
     });
 });
 
+//nessun controllo su autenticazione (broken access control)
 app.get('/admin', (req, res) => {
     if (req.cookies.isAdmin !== 'true') return res.send("Accesso Negato.");
     
@@ -195,6 +198,7 @@ app.post('/admin/add-doctor', (req, res) => {
     if (req.cookies.isAdmin !== 'true') return res.send("Accesso Negato.");
     
     const { name, email, password } = req.body;
+    //Cryptographic Failures (M5 hash password md5 e non usa salt) 
     const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
     
     db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'doctor')", [name, email, hashedPassword], function(err) {

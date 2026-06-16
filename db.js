@@ -25,6 +25,7 @@ db.serialize(() => {
         file_path TEXT
     )`);
 
+    //Security Misconfiguration e Cryptographic Failures
     db.get("SELECT * FROM users WHERE email = 'admin@medivibe.com'", (err, row) => {
         if (!row) {
             const pwd = crypto.createHash('md5').update('admin123').digest('hex');
