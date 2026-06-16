@@ -12,6 +12,7 @@ const app = express();
 app.use(helmet()); // Aggiunge difesa in profondità e header HTTP sicuri
 const port = 3000;
 
+//Security misconfiguration (in produzione usiamo delle API KEY per l'invio delle mail)
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 
 const uploadDir = path.join(__dirname, 'public', 'uploads');
@@ -77,6 +78,7 @@ const originalSet = sessionStore.set.bind(sessionStore);
 
 // Sicurezza (Cifratura At-Rest): Effettuiamo l'override dei metodi set e get dello store delle sessioni
 // per cifrare in scrittura e decifrare in lettura i dati di sessione (AES-256-CBC) in modo trasparente.
+//override del metodo set per la cifratura dei dati di sessione
 sessionStore.set = (sid, sessionData, callback) => {
     try {
         const serialized = JSON.stringify(sessionData);
@@ -87,6 +89,7 @@ sessionStore.set = (sid, sessionData, callback) => {
     }
 };
 
+//override del metodo get per la decifratura dei dati di sessione
 sessionStore.get = (sid, callback) => {
     originalGet(sid, (err, sessionData) => {
         if (err) return callback(err);
@@ -97,6 +100,7 @@ sessionStore.get = (sid, callback) => {
                 const deserialized = JSON.parse(decrypted);
                 return callback(null, deserialized);
             }
+            //se non c'e un payload cifrato, restituiamo la sessione così com'è
             return callback(null, sessionData);
         } catch (decryptionErr) {
             return callback(decryptionErr);
@@ -104,15 +108,18 @@ sessionStore.get = (sid, callback) => {
     });
 };
 
+//broken access control: inilializzazione della sessione
 app.use(session({
     store: sessionStore,
+    //firma della sessione
     secret: process.env.SESSION_SECRET || 'fallback-secret-non-sicuro',
     resave: false,
     saveUninitialized: false,
+    //applicazione flag sulla configurazione dei cookie
     cookie: { 
-        httpOnly: true,
-        secure: false,  
-        sameSite: 'lax' 
+        httpOnly: true, // Impedisce a script client-side (JS) di accedere al cookie di sessione (mitiga XSS)
+        secure: false,  // In produzione va impostato a true per obbligare l'invio solo su HTTPS
+        sameSite: 'lax' // Impedisce l'invio automatico del cookie per richieste di terze parti (mitiga CSRF)
     }
 }));
 
@@ -202,6 +209,7 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     
+    //hashing password con algoritmo bcrypt
     // Sicurezza (SQL Injection): Utilizziamo una query parametrizzata per impedire SQL Injection.
     const query = "SELECT * FROM users WHERE email = ?";
     
@@ -213,7 +221,7 @@ app.post('/login', async (req, res) => {
         
         // Sicurezza (Bcrypt): Confrontiamo l'hash della password con bcrypt anziché MD5 in chiaro.
         if (row && await bcrypt.compare(password, row.password)) {
-            // Sicurezza (Session Management): Memorizziamo l'identità e il ruolo lato server nella sessione.
+            // Sicurezza (broken access control): Memorizziamo l'identità e il ruolo lato server nella sessione.
             req.session.userId = row.id;
             req.session.role = row.role;
             
@@ -272,6 +280,7 @@ app.post('/register', async (req, res) => {
         });
     }
 
+    //hashing password con algoritmo bcrypt
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         
@@ -391,6 +400,8 @@ app.get('/report', (req, res) => {
     });
 });
 
+//broken access control: controllo del ruolo admin
+//verifica privilegi per broken access control
 app.get('/admin', (req, res) => {
     if (!req.session.userId || req.session.role !== 'admin') {
         return res.status(403).send("Accesso Negato. Violazione dei privilegi rilevata.");
@@ -415,6 +426,7 @@ app.post('/upload', upload.single('reportFile'), (req, res) => {
     }
 });
 
+//distruzione sessione
 app.get('/logout', (req, res) => {
     const userId = req.session ? req.session.userId : null;
     if (userId) {
